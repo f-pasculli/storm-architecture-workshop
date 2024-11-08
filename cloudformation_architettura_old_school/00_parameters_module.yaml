@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Old architecture parameters module
+
+Parameters:
+
+  # Project parameters
+  Environment:
+    Type: String
+    Default: "dev"
+    Description: "Deployment environment"
+    AllowedValues:
+      - dev
+      - test
+      - qa
+      - uat 
+      - prod
+    ConstraintDescription: "Allowed values: dev, test, qa, uat, prod"
+  Project:
+    Type: String
+    Default: "storm-old-arch"
+    Description: "Project name"
+  
+  # Network module parameters
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedValues:
+      - 10.0.0.0/16
+    Description: CIDR block for the VPC
+  PublicSubnetACidr:
+    Type: String
+    Default: 10.0.1.0/24
+    AllowedValues:
+      - 10.0.1.0/24
+    Description: CIDR block for the public subnet A
+  PublicSubnetBCidr:
+    Type: String
+    Default: 10.0.2.0/24
+    AllowedValues:
+      - 10.0.2.0/24
+    Description: CIDR block for the public subnet B
+  PrivateSubnetACidr:
+    Type: String
+    Default: 10.0.3.0/24
+    AllowedValues:
+      - 10.0.3.0/24
+    Description: CIDR block for the first private subnet A
+  PrivateSubnetBCidr:
+    Type: String
+    Default: 10.0.4.0/24
+    AllowedValues:
+      - 10.0.4.0/24
+    Description: CIDR block for the second private subnet B
+
+  # Security module parameters
+
+  # Data module parameters
+  DBName:
+    Description: Database name
+    Type: String
+    Default: mydatabase
+  DBUser:
+    Description: Database admin name
+    Type: String
+    Default: admin
+  DBAllocatedStorage:
+    Description: Allocated storage (GB)
+    Type: Number
+    Default: 20
+  DBInstanceClass:
+    Description: RDS instance type
+    Type: String
+    Default: db.m5.large
+    AllowedValues:
+      - db.t3.small
+      - db.t3.medium
+      - db.m5.large
+
+  # App code module parameters
+
+  # Compute module parameters
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: EC2 instance type
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+    ConstraintDescription: 'Allowed values: [t3.micro, t3.small, t3.medium]'
+
+Resources:
+
+  Parameters:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: !Sub "/00_parameters_module"
+      Type: "String"
+      Value: !Sub |
+        {
+          "environment": "${Environment}",
+          "project": "${Project}",
+          "vpc_cidr": "${VpcCidr}",
+          "public_subnet_a_cidr": "${PublicSubnetACidr}",
+          "public_subnet_b_cidr": "${PublicSubnetBCidr}",
+          "private_subnet_a_cidr": "${PrivateSubnetACidr}",
+          "private_subnet_b_cidr": "${PrivateSubnetBCidr}",
+          "db_name": "${DBName}",
+          "db_user": "${DBUser}",
+          "db_allocated_storage": "${DBAllocatedStorage}",
+          "db_instance_class": "${DBInstanceClass}",
+          "instance_type": "${InstanceType}"
+        }
+
+Outputs:
+
+  # Project parameters
+  ExportedEnvironment:
+    Description: "Deployment environment"
+    Value: !Ref Environment
+    Export:
+      Name: old-arch-params:env
+
+  ExportedProject:
+    Description: "Project name"
+    Value: !Ref Project
+    Export:
+      Name: old-arch-params:prj
+
+  ExportedRegion:
+    Description: "Selected region"
+    Value: !Ref "AWS::Region"
+    Export:
+      Name: old-arch-params:region
+
+  # Network module parameters
+  ExportedVpcCidr:
+    Description: "CIDR block for the VPC"
+    Value: !Ref VpcCidr
+    Export:
+      Name: old-arch-params:vpc-cidr
+
+  ExportedPublicSubnetACidr:
+    Description: "CIDR block for the public subnet A"
+    Value: !Ref PublicSubnetACidr
+    Export:
+      Name: old-arch-params:public-subnet-a-cidr
+
+  ExportedPublicSubnetBCidr:
+    Description: "CIDR block for the public subnet B"
+    Value: !Ref PublicSubnetBCidr
+    Export:
+      Name: old-arch-params:public-subnet-b-cidr
+
+  ExportedPrivateSubnetACidr:
+    Description: "CIDR block for the private subnet A"
+    Value: !Ref PrivateSubnetACidr
+    Export:
+      Name: old-arch-params:private-subnet-a-cidr
+
+  ExportedPrivateSubnetBCidr:
+    Description: "CIDR block for the private subnet B"
+    Value: !Ref PrivateSubnetBCidr
+    Export:
+      Name: old-arch-params:private-subnet-b-cidr
+
+  # Security module parameters
+
+  # Data module parameters
+  ExportedDBName:
+    Description: "Database name"
+    Value: !Ref DBName
+    Export:
+      Name: old-arch-params:db-name
+
+  ExportedDBUser:
+    Description: "Database admin name"
+    Value: !Ref DBUser
+    Export:
+      Name: old-arch-params:db-user
+
+  ExportedDBAllocatedStorage:
+    Description: "Allocated storage (GB)"
+    Value: !Ref DBAllocatedStorage
+    Export:
+      Name: old-arch-params:db-allocated-storage
+
+  ExportedDBInstanceClass:
+    Description: "RDS instance type"
+    Value: !Ref DBInstanceClass
+    Export:
+      Name: old-arch-params:db-instance-class
+
+  # App code module parameters
+
+  # Compute module parameters
+  ExportedInstanceType:
+    Description: "EC2 instance type"
+    Value: !Ref InstanceType
+    Export:
+      Name: old-arch-params:instance-type

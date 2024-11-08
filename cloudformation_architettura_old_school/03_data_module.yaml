@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Old architecture data module
+
+Parameters:
+  DBPassword:
+    Description: Password del database
+    Type: String
+    Default: password
+    NoEcho: true
+    MaxLength: 41
+    MinLength: 8
+
+Resources:
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets for RDS instance
+      SubnetIds:
+        - !ImportValue old-arch-params:private-subnet-a-id
+        - !ImportValue old-arch-params:private-subnet-b-id
+      Tags:
+        - Key: Name
+          Value: !Join ['-', ['rds-subnet-group', !ImportValue old-arch-params:prj, !ImportValue old-arch-params:env ] ]
+        - Key: Project
+          Value: !ImportValue old-arch-params:prj
+        - Key: Environment
+          Value: !ImportValue old-arch-params:env
+  
+  MyDBInstance:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceIdentifier: !Join ['-', ['rds', !ImportValue old-arch-params:prj, !ImportValue old-arch-params:env ] ]
+      AllocatedStorage: !ImportValue old-arch-params:db-allocated-storage
+      DBInstanceClass: !ImportValue old-arch-params:db-instance-class
+      Engine: 'mysql'
+      MasterUsername: !ImportValue old-arch-params:db-user
+      MasterUserPassword: !Ref DBPassword
+      DBName: !ImportValue old-arch-params:db-name
+      VPCSecurityGroups:
+        - !ImportValue old-arch-params:rds-sg
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 0
+      Tags:
+        - Key: Name
+          Value: !Join ['-', ['rds', !ImportValue old-arch-params:prj, !ImportValue old-arch-params:env ] ]
+        - Key: Project
+          Value: !ImportValue old-arch-params:prj
+        - Key: Environment
+          Value: !ImportValue old-arch-params:env
+    
+  RDSDBPassword:
+    Type: "AWS::SecretsManager::Secret"
+    Properties:
+      Name: !Join ['/', ['RDS/DB/password', !ImportValue old-arch-params:prj, !ImportValue old-arch-params:env ] ]
+      SecretString: !Ref DBPassword
+
+Outputs:
+  DBEndpoint:
+    Description: Endpoint del database
+    Value: !GetAtt MyDBInstance.Endpoint.Address
+    Export:
+      Name: old-arch-params:db-endpoint
+  DBPasswordSecretID:
+    Description: Endpoint del database
+    Value: !Ref RDSDBPassword
+    Export:
+      Name: old-arch-params:db-password-secret-id

@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Old architecture app code module
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+        BucketName: !Join 
+            - '-'
+            - - frontend-bucket
+              - !ImportValue old-arch-params:prj
+              - !ImportValue old-arch-params:env
+        WebsiteConfiguration:
+            IndexDocument: index.html
+        PublicAccessBlockConfiguration:
+            BlockPublicAcls: false
+            BlockPublicPolicy: false
+            IgnorePublicAcls: false
+            RestrictPublicBuckets: false
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowPublicRead
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${S3Bucket.Arn}/*'
+Outputs:
+  WebsiteURL:
+    Description: URL of the static website
+    Value: !Sub '${S3Bucket.WebsiteURL}/index.html'
+  ExportedS3arn:
+    Description: "S3 Path for app.py download"
+    Value: !Ref S3Bucket
+    Export:
+      Name: old-arch-params:frontend-bucket-arn

@@ -1,0 +1,283 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Compute module for Gold architecture
+
+Resources:
+
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Join ['-', ['LambdaExecutionRole', !ImportValue gold-arch-params:prj, !ImportValue gold-arch-params:env]]
+      Description: IAM role for Lambda functions
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+        - PolicyName: !Join ['-', ['LambdaDynamoDBPolicy', !ImportValue gold-arch-params:prj, !ImportValue gold-arch-params:env]]
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Scan
+                Resource:
+                  - !Sub
+                      - 'arn:aws:dynamodb:${Region}:${AWS::AccountId}:table/${TableName}'
+                      - Region: !ImportValue gold-arch-params:region
+                        TableName: !ImportValue gold-arch-params:full-dynamodb-table-name
+
+  ### Lambda Functions ###
+
+  GetItemsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Join ['-', ['get-items', !ImportValue gold-arch-params:prj, !ImportValue gold-arch-params:env]]
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !ImportValue gold-arch-params:full-dynamodb-table-name
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+
+          dynamodb = boto3.resource('dynamodb')
+          table_name = os.environ.get('DYNAMODB_TABLE_NAME', 'myDynamoDBTable')
+          table = dynamodb.Table(table_name)
+
+          def lambda_handler(event, context):
+              try:
+                  response = table.scan()
+                  items = response.get('Items', [])
+                  
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps(items),
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*'
+                      }
+                  }
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)}),
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*'
+                      }
+                  }
+
+  AddItemFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Join ['-', ['add-item', !ImportValue gold-arch-params:prj, !ImportValue gold-arch-params:env]]
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !ImportValue gold-arch-params:full-dynamodb-table-name
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+
+          dynamodb = boto3.resource('dynamodb')
+          table_name = os.environ.get('DYNAMODB_TABLE_NAME', 'myDynamoDBTable')
+          table = dynamodb.Table(table_name)
+
+          def lambda_handler(event, context):
+              try:
+                  data = json.loads(event['body'])
+                  animale = data.get('animale')
+                  verso = data.get('verso')
+                  if not animale or not verso:
+                      return {
+                          'statusCode': 400,
+                          'body': json.dumps({'error': 'Input non valido'}),
+                          'headers': {
+                              'Access-Control-Allow-Origin': '*'
+                          }
+                      }
+                  # Controlla se l'animale esiste già
+                  response = table.get_item(Key={'animale': animale})
+                  if 'Item' in response:
+                      return {
+                          'statusCode': 409,
+                          'body': json.dumps({'error': 'Elemento già esistente'}),
+                          'headers': {
+                              'Access-Control-Allow-Origin': '*'
+                          }
+                      }
+                  # Inserisce il nuovo elemento
+                  table.put_item(Item={'animale': animale, 'verso': verso})
+                  return {
+                      'statusCode': 201,
+                      'body': json.dumps({'message': 'Elemento aggiunto'}),
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*'
+                      }
+                  }
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)}),
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*'
+                      }
+                  }
+
+  UpdateItemFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Join ['-', ['update-item', !ImportValue gold-arch-params:prj, !ImportValue gold-arch-params:env]]
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !ImportValue gold-arch-params:full-dynamodb-table-name
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+
+          dynamodb = boto3.resource('dynamodb')
+          table_name = os.environ.get('DYNAMODB_TABLE_NAME', 'myDynamoDBTable')
+          table = dynamodb.Table(table_name)
+
+          def lambda_handler(event, context):
+              try:
+                  animale = event['pathParameters']['animale']
+                  data = json.loads(event['body'])
+                  verso = data.get('verso')
+                  if not verso:
+                      return {
+                          'statusCode': 400,
+                          'body': json.dumps({'error': 'Input non valido'}),
+                          'headers': {
+                              'Access-Control-Allow-Origin': '*'
+                          }
+                      }
+                  # Controlla se l'elemento esiste
+                  response = table.get_item(Key={'animale': animale})
+                  if 'Item' not in response:
+                      return {
+                          'statusCode': 404,
+                          'body': json.dumps({'error': 'Elemento non esistente'}),
+                          'headers': {
+                              'Access-Control-Allow-Origin': '*'
+                          }
+                      }
+                  # Aggiorna l'elemento
+                  table.update_item(
+                      Key={'animale': animale},
+                      UpdateExpression='SET verso = :val',
+                      ExpressionAttributeValues={':val': verso}
+                  )
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({'message': 'Elemento aggiornato'}),
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*'
+                      }
+                  }
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)}),
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*'
+                      }
+                  }
+
+  DeleteItemFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Join ['-', ['delete-item', !ImportValue gold-arch-params:prj, !ImportValue gold-arch-params:env]]
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !ImportValue gold-arch-params:full-dynamodb-table-name
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+
+          dynamodb = boto3.resource('dynamodb')
+          table_name = os.environ.get('DYNAMODB_TABLE_NAME', 'myDynamoDBTable')
+          table = dynamodb.Table(table_name)
+
+          def lambda_handler(event, context):
+              try:
+                  animale = event['pathParameters']['animale']
+                  # Controlla se l'elemento esiste
+                  response = table.get_item(Key={'animale': animale})
+                  if 'Item' not in response:
+                      return {
+                          'statusCode': 404,
+                          'body': json.dumps({'error': 'Elemento non esistente'}),
+                          'headers': {
+                              'Access-Control-Allow-Origin': '*'
+                          }
+                      }
+                  # Elimina l'elemento
+                  table.delete_item(Key={'animale': animale})
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({'message': 'Elemento eliminato'}),
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*'
+                      }
+                  }
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)}),
+                      'headers': {
+                          'Access-Control-Allow-Origin': '*'
+                      }
+                  }
+
+Outputs:
+  ExportedGetItemsFunctionArn:
+    Description: "ARN of the GetItemsFunction Lambda"
+    Value: !GetAtt GetItemsFunction.Arn
+    Export:
+      Name: gold-arch-params:get-items-lambda-arn
+
+  ExportedAddItemFunctionArn:
+    Description: "ARN of the AddItemFunction Lambda"
+    Value: !GetAtt AddItemFunction.Arn
+    Export:
+      Name: gold-arch-params:add-item-lambda-arn
+
+  ExportedUpdateItemFunctionArn:
+    Description: "ARN of the UpdateItemFunction Lambda"
+    Value: !GetAtt UpdateItemFunction.Arn
+    Export:
+      Name: gold-arch-params:update-item-lambda-arn
+
+  ExportedDeleteItemFunctionArn:
+    Description: "ARN of the DeleteItemFunction Lambda"
+    Value: !GetAtt DeleteItemFunction.Arn
+    Export:
+      Name: gold-arch-params:delete-item-lambda-arn

@@ -1,0 +1,251 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: API module for Gold architecture
+
+Resources:
+  ### API Gateway ###
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Join ['-', ['ApiGateway', !ImportValue gold-arch-params:prj, !ImportValue gold-arch-params:env]]
+
+  ### Permissions for API Gateway to Invoke Lambdas ###
+  LambdaInvokePermissionGetItems:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gold-arch-params:get-items-lambda-arn
+      Action: 'lambda:InvokeFunction'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub
+        - 'arn:aws:execute-api:${Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/GET/items'
+        - Region: !ImportValue gold-arch-params:region
+
+  LambdaInvokePermissionAddItem:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gold-arch-params:add-item-lambda-arn
+      Action: 'lambda:InvokeFunction'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub
+        - 'arn:aws:execute-api:${Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/POST/items'
+        - Region: !ImportValue gold-arch-params:region
+
+  LambdaInvokePermissionUpdateItem:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gold-arch-params:update-item-lambda-arn
+      Action: 'lambda:InvokeFunction'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub
+        - 'arn:aws:execute-api:${Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/PUT/items/*'
+        - Region: !ImportValue gold-arch-params:region
+
+  LambdaInvokePermissionDeleteItem:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue gold-arch-params:delete-item-lambda-arn
+      Action: 'lambda:InvokeFunction'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub
+        - 'arn:aws:execute-api:${Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/DELETE/items/*'
+        - Region: !ImportValue gold-arch-params:region
+
+  ### API Resources ###
+  ApiGatewayResourceItems:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: 'items'
+
+  ApiGatewayResourceItem:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ParentId: !Ref ApiGatewayResourceItems
+      PathPart: '{animale}'
+
+  ### API Methods ###
+
+  # GET /items
+  ApiGatewayMethodItemsGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResourceItems
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - 'arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${GetItemsLambdaArn}/invocations'
+          - Region: !ImportValue gold-arch-params:region
+            GetItemsLambdaArn: !ImportValue gold-arch-params:get-items-lambda-arn
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: '500'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # POST /items
+  ApiGatewayMethodItemsPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResourceItems
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - 'arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${AddItemLambdaArn}/invocations'
+          - Region: !ImportValue gold-arch-params:region
+            AddItemLambdaArn: !ImportValue gold-arch-params:add-item-lambda-arn
+      MethodResponses:
+        - StatusCode: '201'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: '400'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: '409'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: '500'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # PUT /items/{animale}
+  ApiGatewayMethodItemPut:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResourceItem
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      RequestParameters:
+        method.request.path.animale: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - 'arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${UpdateItemLambdaArn}/invocations'
+          - Region: !ImportValue gold-arch-params:region
+            UpdateItemLambdaArn: !ImportValue gold-arch-params:update-item-lambda-arn
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: '400'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: '404'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: '500'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # DELETE /items/{animale}
+  ApiGatewayMethodItemDelete:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResourceItem
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      RequestParameters:
+        method.request.path.animale: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - 'arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${DeleteItemLambdaArn}/invocations'
+          - Region: !ImportValue gold-arch-params:region
+            DeleteItemLambdaArn: !ImportValue gold-arch-params:delete-item-lambda-arn
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: '404'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: '500'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  ### OPTIONS Methods for CORS Support ###
+
+  # OPTIONS /items
+  ApiGatewayMethodItemsOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResourceItems
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{statusCode:200}'
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # OPTIONS /items/{animale}
+  ApiGatewayMethodItemOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResourceItem
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{statusCode:200}'
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  ### Deployment ###
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayMethodItemsGet
+      - ApiGatewayMethodItemsPost
+      - ApiGatewayMethodItemsOptions
+      - ApiGatewayMethodItemPut
+      - ApiGatewayMethodItemDelete
+      - ApiGatewayMethodItemOptions
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway URL
+    Value: !Sub 'https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Export:
+      Name: gold-arch-params:api-gateway-url

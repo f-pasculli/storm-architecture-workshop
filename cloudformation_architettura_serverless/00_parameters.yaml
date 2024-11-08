@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Parameters module for Gold architecture
+
+Parameters:
+  Environment:
+    Type: String
+    Default: "dev"
+    Description: "Deployment environment"
+    AllowedValues:
+      - dev
+      - test
+      - qa
+      - uat
+      - prod
+    ConstraintDescription: "Allowed values: dev, test, qa, uat, prod"
+
+  Project:
+    Type: String
+    Default: "storm-gold-arch"
+    Description: "Project name"
+  
+  DynamoDBTableName:
+    Description: "DynamoDB table name"
+    Type: String
+    Default: "dynamo-table"
+
+Resources:
+  Parameters:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: !Sub "/00_parameters_serverless"
+      Type: "String"
+      Value: !Sub |
+        {
+          "environment": "${Environment}",
+          "project": "${Project}",
+          "full-dynamodb-table-name": "${DynamoDBTableName}-${Project}-${Environment}"
+        }
+
+Outputs:
+  ExportedEnvironment:
+    Description: "Deployment environment"
+    Value: !Ref Environment
+    Export:
+      Name: gold-arch-params:env
+
+  ExportedProject:
+    Description: "Project name"
+    Value: !Ref Project
+    Export:
+      Name: gold-arch-params:prj
+
+  ExportedRegion:
+    Description: "Selected region"
+    Value: !Ref "AWS::Region"
+    Export:
+      Name: gold-arch-params:region
+
+  ExportedFullDynamoDBTableName:
+    Description: "Full DynamoDB table name"
+    Value: !Join ['-', [!Ref DynamoDBTableName, !Ref Project, !Ref Environment]]
+    Export:
+      Name: gold-arch-params:full-dynamodb-table-name

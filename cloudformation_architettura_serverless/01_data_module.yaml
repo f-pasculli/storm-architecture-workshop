@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Data module for Gold architecture
+
+Resources:
+  MyDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !ImportValue gold-arch-params:full-dynamodb-table-name
+      AttributeDefinitions:
+        - AttributeName: animale
+          AttributeType: S
+      KeySchema:
+        - AttributeName: animale
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      Tags:
+        - Key: Name
+          Value: !ImportValue gold-arch-params:full-dynamodb-table-name
+        - Key: Project
+          Value: !ImportValue gold-arch-params:prj
+        - Key: Environment
+          Value: !ImportValue gold-arch-params:env

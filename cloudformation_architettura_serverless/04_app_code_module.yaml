@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: App code module for Gold architecture
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join 
+        - '-'
+        - - frontend-bucket
+          - !ImportValue gold-arch-params:prj
+          - !ImportValue gold-arch-params:env
+      WebsiteConfiguration:
+            IndexDocument: index.html
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowPublicRead
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${S3Bucket.Arn}/*'
+
+Outputs:
+  WebsiteURL:
+    Description: URL del sito web statico
+    Value: !Sub '${S3Bucket.WebsiteURL}/index.html'
+    Export:
+      Name: gold-arch-params:website-url

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Storm Arch - Gold</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px 7px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        .button {
+            padding: 8px 12px;
+            margin: 5px 7px;
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .button:hover {
+            background-color: #006f98;
+        }
+        .form-input {
+            padding: 8px 12px;
+            margin: 5px 7px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #error-banner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            background-color: rgba(255, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            border-radius: 8px;
+        }
+        #error-banner p {
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            margin: 0 20px;
+        }
+        #error-banner .close-button {
+            margin-top: 20px;
+            background-color: white;
+            color: red;
+            border: 2px solid red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Storm Arch - Web-app Gold version</h1>
+
+    <div id="controls">
+        <button class="button" onclick="refreshTable()">Refresh Tabella</button>
+        <button class="button" onclick="showAddItemForm()">Nuovo Elemento</button>
+    </div>
+
+    <table id="data-table">
+        <thead>
+            <tr>
+                <th>Animale</th>
+                <th>Verso</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Le righe verranno popolate dinamicamente -->
+        </tbody>
+    </table>
+
+    <div id="error-banner">
+        <div>
+            <p id="error-message"></p>
+            <button class="button close-button" onclick="closeErrorBanner()">Chiudi</button>
+        </div>
+    </div>
+
+    <div id="add-item-form" style="display: none; margin-top: 20px;">
+        <input type="text" id="new-animale" class="form-input" placeholder="Animale">
+        <input type="text" id="new-verso" class="form-input" placeholder="Verso">
+        <button class="button" onclick="addItem()">Conferma</button>
+        <button class="button" onclick="hideAddItemForm()">Annulla</button>
+    </div>
+
+    <script>
+        // Aggiorna l'URL dell'API con quello effettivo
+        const apiUrl = 'API_GATEWAT_URL';
+
+        function refreshTable() {
+            fetch(apiUrl + '/items', {
+                method: 'GET',
+                mode: 'cors'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.querySelector('#data-table tbody');
+                tbody.innerHTML = '';
+                data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${item.animale}</td>
+                        <td>${item.verso}</td>
+                        <td>
+                            <button class="button" onclick="showUpdateItemForm('${item.animale}', '${item.verso}')">Modifica</button>
+                            <button class="button" onclick="deleteItem('${item.animale}')">Elimina</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(error => {
+                showError('Errore nel recupero dei dati');
+            });
+        }
+
+        function addItem() {
+            const animale = document.getElementById('new-animale').value;
+            const verso = document.getElementById('new-verso').value;
+
+            fetch(apiUrl + '/items', {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ animale, verso }),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideAddItemForm();
+                refreshTable();
+            })
+            .catch(error => {
+                showError(error.error || 'Errore nell\'aggiunta dell\'elemento');
+            });
+        }
+
+        function deleteItem(animale) {
+            fetch(apiUrl + '/items/' + encodeURIComponent(animale), {
+                method: 'DELETE',
+                mode: 'cors',
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                refreshTable();
+            })
+            .catch(error => {
+                showError(error.error || 'Errore nell\'eliminazione dell\'elemento');
+            });
+        }
+
+        function showUpdateItemForm(animale, currentVerso) {
+            const newVerso = prompt('Inserisci il nuovo verso per ' + animale + ':', currentVerso);
+            if (newVerso !== null) {
+                fetch(apiUrl + '/items/' + encodeURIComponent(animale), {
+                    method: 'PUT',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ verso: newVerso }),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    refreshTable();
+                })
+                .catch(error => {
+                    showError(error.error || 'Errore nell\'aggiornamento dell\'elemento');
+                });
+            }
+        }
+
+        function showAddItemForm() {
+            document.getElementById('add-item-form').style.display = 'block';
+        }
+
+        function hideAddItemForm() {
+            document.getElementById('add-item-form').style.display = 'none';
+            document.getElementById('new-animale').value = '';
+            document.getElementById('new-verso').value = '';
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').innerText = message;
+            document.getElementById('error-banner').style.display = 'flex';
+        }
+
+        function closeErrorBanner() {
+            document.getElementById('error-banner').style.display = 'none';
+            refreshTable();
+        }
+
+        // Caricamento iniziale della tabella
+        refreshTable();
+    </script>
+</body>
+</html>
